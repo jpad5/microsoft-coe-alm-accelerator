@@ -45,7 +45,7 @@ parameters:
   type: string
   default: ''
 steps:
-- template: Hooks\export-solution-pre-hook.yml
+- template: Hooks/export-solution-pre-hook.yml
 
 - template: set-service-connection-url.yml
   parameters:
@@ -72,7 +72,7 @@ steps:
    git config user.email "${{parameters.email}}"
    git config user.name "${{parameters.userName}}"
    git checkout origin/${{parameters.branch}} --track
-  workingDirectory: $(Build.SourcesDirectory)\${{parameters.repo}}
+  workingDirectory: $(Build.SourcesDirectory)/${{parameters.repo}}
   displayName: 'Initialize Git'
 
 # If the BranchToCreate variable *does not* contain an empty string, then
@@ -80,7 +80,7 @@ steps:
 - script: |
    git checkout -b ${{parameters.branchToCreate}} ${{parameters.branch}}
   displayName: 'Create New Git Branch: ${{parameters.branchToCreate}}'
-  workingDirectory: $(Build.SourcesDirectory)\${{parameters.repo}}
+  workingDirectory: $(Build.SourcesDirectory)/${{parameters.repo}}
   condition: and(succeeded(), ne('${{parameters.branchToCreate}}', 'Commit to existing branch specified in Branch parameter')) # If an empty value is passed for the BranchToCreate variable, then skip this task
 
 - task: microsoft-IsvExpTools.PowerPlatform-BuildTools.tool-installer.PowerPlatformToolInstaller@0
@@ -102,7 +102,7 @@ steps:
     authenticationType: PowerPlatformSPN
     PowerPlatformSPN: ${{parameters.serviceConnectionName}}
     SolutionName: '${{parameters.solutionName}}'
-    SolutionOutputFile: '$(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}.zip'
+    SolutionOutputFile: '$(Build.ArtifactStagingDirectory)/${{parameters.solutionName}}.zip'
 
 - task: microsoft-IsvExpTools.PowerPlatform-BuildTools.export-solution.PowerPlatformExportSolution@0
   displayName: 'Export Managed Solution'
@@ -110,23 +110,23 @@ steps:
     authenticationType: PowerPlatformSPN
     PowerPlatformSPN: ${{parameters.serviceConnectionName}}
     SolutionName: '${{parameters.solutionName}}'
-    SolutionOutputFile: '$(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}_managed.zip'
+    SolutionOutputFile: '$(Build.ArtifactStagingDirectory)/${{parameters.solutionName}}_managed.zip'
     Managed: true
 
-- template: Hooks\export-solution-unpack-pre-hook.yml
+- template: Hooks/export-solution-unpack-pre-hook.yml
 
 # Unpack contents of solution to make the contents source control friendly 
 - task: microsoft-IsvExpTools.PowerPlatform-BuildTools.unpack-solution.PowerPlatformUnpackSolution@0
   displayName: 'Power Platform Unpack Solution'
   inputs:
-    SolutionInputFile: '$(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}.zip'
-    SolutionTargetFolder: '$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage'
+    SolutionInputFile: '$(Build.ArtifactStagingDirectory)/${{parameters.solutionName}}.zip'
+    SolutionTargetFolder: '$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}/SolutionPackage'
     SolutionType: Both
 
-- template: Hooks\export-solution-manipulate-pre-hook.yml
+- template: Hooks/export-solution-manipulate-pre-hook.yml
 
 - pwsh: |
-   Get-ChildItem -Path "$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage\**\Solution.xml" | 
+   Get-ChildItem -Path "$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}/SolutionPackage/**/Solution.xml" | 
    ForEach-Object {
         (Get-Content $_.FullName) `
             -replace '<Version>[\s\S]*?<\/Version>', '<Version>0.0.0.0</Version>' |
@@ -144,7 +144,7 @@ steps:
 
 # Unpack source files into a folder
 - pwsh: |
-   Get-ChildItem -Path "$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}" -Recurse -Filter *.msapp | 
+   Get-ChildItem -Path "$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}" -Recurse -Filter *.msapp | 
    ForEach-Object {
         $unpackedPath = $_.FullName.Replace(".msapp", "_msapp_src")
         #Temporarily unpacking with latest version of Power Apps Language Tooling
@@ -161,7 +161,7 @@ steps:
 
 # Unpack source files into a folder
 - pwsh: |
-   Get-ChildItem -Path "$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}" -Recurse -Filter *.msapp | 
+   Get-ChildItem -Path "$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}" -Recurse -Filter *.msapp | 
    ForEach-Object {
         $unpackedPath = $_.FullName.Replace(".msapp", "_msapp_src")
         #Temporarily unpacking with latest version of Power Apps Language Tooling
@@ -190,7 +190,7 @@ steps:
 # We need to clear out the contents of any *_connectionparameters.json file.  This is to ensure those valuse
 # are not overwritten when the Solution is imported to a downstream environment.
 - powershell: |   
-   Get-ChildItem -Path "$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}" -Recurse -Filter *_connectionparameters.json | 
+   Get-ChildItem -Path "$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}" -Recurse -Filter *_connectionparameters.json | 
    ForEach-Object {
       Clear-Content $_.FullName
    }
@@ -198,11 +198,11 @@ steps:
   enabled: true
 
 - powershell: |
-    if (Test-Path $(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}_managed.zip) {
-        Remove-Item $(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}_managed.zip
+    if (Test-Path $(Build.ArtifactStagingDirectory)/${{parameters.solutionName}}_managed.zip) {
+        Remove-Item $(Build.ArtifactStagingDirectory)/${{parameters.solutionName}}_managed.zip
     }
-    if (Test-Path $(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}.zip) {
-        Remove-Item $(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}.zip
+    if (Test-Path $(Build.ArtifactStagingDirectory)/${{parameters.solutionName}}.zip) {
+        Remove-Item $(Build.ArtifactStagingDirectory)/${{parameters.solutionName}}.zip
     }
   displayName: 'Delete solution zip files'
   enabled: true
@@ -211,7 +211,7 @@ steps:
 # update all the json files to be pretty-print / formatted so they are easier to read in source control.
 # This also makes it easier to read changes from one commit to another
 - powershell: |
-   Get-ChildItem -Path "$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage" -Recurse -Filter *.json | 
+   Get-ChildItem -Path "$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}/SolutionPackage" -Recurse -Filter *.json | 
    ForEach-Object {
     #skip canvas app and workflows folder because canvas and flows team already handles this
      if(-not $_.FullName.Contains('CanvasApps') -and -not $_.FullName.Contains('Workflows')) {
@@ -229,7 +229,7 @@ steps:
 - powershell: |
    # Regex to extract GUID from the end of the filename
    $reGuid = '(([0-9a-f]){8}-([0-9a-f]){4}-([0-9a-f]){4}-([0-9a-f]){4}-([0-9a-f]){12})\.xaml$'
-   Get-ChildItem -Path "$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage\Workflows" -Recurse -File -Filter *.xaml | 
+   Get-ChildItem -Path "$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}/SolutionPackage/Workflows" -Recurse -File -Filter *.xaml | 
      Select-String 'XrmWorkflow00000000000000000000000000000000' -List | 
      Select-Object Path,Filename |
      ForEach-Object {
@@ -245,17 +245,17 @@ steps:
   displayName: 'Fix unset GUIDs in new Business Rules'
 
 - powershell: |
-   Get-ChildItem -Path "$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage\environmentvariabledefinitions" -Recurse -Filter environmentvariablevalues.json | Remove-Item
+   Get-ChildItem -Path "$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}/SolutionPackage/environmentvariabledefinitions" -Recurse -Filter environmentvariablevalues.json | Remove-Item
   displayName: 'Verify Environment Variable Current Value Not Exported'
   condition: and(succeeded(), eq(variables.DoNotExportCurrentEnvironmentVariableValues, 'true'))
 
 # Set paths to deployment settings
 - template: set-deployment-configuration-paths.yml
   parameters:
-    configPath: '$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\config\'
+    configPath: '$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}/config/'
     environmentName: ''
 
-- template: Hooks\export-solution-update-deploymentsettings-pre-hook.yml
+- template: Hooks/export-solution-update-deploymentsettings-pre-hook.yml
 
 # Update deployment settings configuration
 - template: update-deployment-settings.yml
@@ -295,7 +295,7 @@ steps:
        $config = ConvertFrom-Json '$(outDefaultEnvironmentVariables)'
        foreach ($c in $config) {
            $envVariableName = $c[0]
-           Get-ChildItem -Path "$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage\environmentvariabledefinitions\$envVariableName\environmentvariabledefinition.xml" | 
+           Get-ChildItem -Path "$(Build.SourcesDirectory)/${{parameters.repo}}/${{parameters.solutionName}}/SolutionPackage/environmentvariabledefinitions/$envVariableName/environmentvariabledefinition.xml" | 
            ForEach-Object {
              $xml=[xml](Get-Content $_.FullName)
              $definitionNode = $xml.SelectSingleNode("//environmentvariabledefinition")
@@ -315,11 +315,11 @@ steps:
   displayName: 'Verify Default Environment Variables Are Set'
   condition: and(succeeded(), eq(variables.VerifyDefaultEnvironmentVariableValues, 'true'))
 
-- template: Hooks\export-solution-commit-pre-hook.yml
+- template: Hooks/export-solution-commit-pre-hook.yml
 
 - powershell: |
     git add --all
-  workingDirectory: $(Build.SourcesDirectory)\${{parameters.repo}}
+  workingDirectory: $(Build.SourcesDirectory)/${{parameters.repo}}
   displayName: 'Add Changes to Git Branch'
 
 # Commit all changes to Git branch. If there are no changes we want to warn the user that there was nothing to commit. As this could mean there was a user error involved.
@@ -332,21 +332,21 @@ steps:
         Write-Host "##vso[task.logissue type=warning]There is nothing to commit. No changes have been made since the previous commit. If this is unexpected make sure your changes have been published before committing again."
         exit 1;
     }
-  workingDirectory: $(Build.SourcesDirectory)\${{parameters.repo}}
+  workingDirectory: $(Build.SourcesDirectory)/${{parameters.repo}}
   displayName: 'Commit Changes to Git Branch'
   continueOnError: true
   
 # If BranchToCreate variable value is '', then push to the branch specified in the Branch variable
 - script: |
    git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin ${{parameters.branch}}
-  workingDirectory: $(Build.SourcesDirectory)\${{parameters.repo}}
+  workingDirectory: $(Build.SourcesDirectory)/${{parameters.repo}}
   displayName: 'Push to ${{parameters.branch}} Remote Branch'
   condition: and(eq('${{parameters.gitAccessUrl}}', ''), succeeded(), eq('${{parameters.branchToCreate}}', 'Commit to existing branch specified in Branch parameter')) # If an empty value is passed for the BranchToCreate variable, then run this task
 
 # If BranchToCreate variable value is not '', then push to the branch specified in the BranchToCreate variable
 - script: |
    git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin ${{parameters.branchToCreate}}
-  workingDirectory: $(Build.SourcesDirectory)\${{parameters.repo}}
+  workingDirectory: $(Build.SourcesDirectory)/${{parameters.repo}}
   displayName: 'Push to ${{parameters.branchToCreate}} Remote Branch'
   condition: and(eq('${{parameters.gitAccessUrl}}', ''), succeeded(), ne('${{parameters.branchToCreate}}', 'Commit to existing branch specified in Branch parameter')) # If an empty value is not passed for the BranchToCreate variable, then run this task
 
@@ -354,7 +354,7 @@ steps:
 - script: |
    git remote set-url origin ${{parameters.gitAccessUrl}}
    git push origin ${{parameters.branch}}
-  workingDirectory: $(Build.SourcesDirectory)\${{parameters.repo}}
+  workingDirectory: $(Build.SourcesDirectory)/${{parameters.repo}}
   displayName: 'Push to ${{parameters.branchToCreate}} Remote Branch'
   condition: and(ne('${{parameters.gitAccessUrl}}', ''), succeeded(), eq('${{parameters.branchToCreate}}', 'Commit to existing branch specified in Branch parameter')) # If an empty value is passed for the BranchToCreate variable, then run this task
 
@@ -362,8 +362,8 @@ steps:
 - script: |
    git remote set-url origin ${{parameters.gitAccessUrl}}
    git push origin ${{parameters.branchToCreate}}
-  workingDirectory: $(Build.SourcesDirectory)\${{parameters.repo}}
+  workingDirectory: $(Build.SourcesDirectory)/${{parameters.repo}}
   displayName: 'Push to ${{parameters.branchToCreate}} Remote Branch'
   condition: and(ne('${{parameters.gitAccessUrl}}', ''), succeeded(), ne('${{parameters.branchToCreate}}', 'Commit to existing branch specified in Branch parameter')) # If an empty value is not passed for the BranchToCreate variable, then run this task
 
-- template: Hooks\export-solution-post-hook.yml
+- template: Hooks/export-solution-post-hook.yml
