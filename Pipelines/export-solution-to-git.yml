@@ -84,7 +84,7 @@ stages:
       displayName: 'Checkout Source Branch'
     
     # Other tasks, which use the PowerApps PowerShell cmdlets, need the environment guid.  Setting it for future use.
-    - template: Templates\export-Solution.yml
+    - template: Templates/export-Solution.yml
       parameters:
         project: ${{parameters.Project}}
         repo: ${{parameters.Repo}}
