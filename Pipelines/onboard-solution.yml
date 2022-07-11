@@ -26,7 +26,7 @@ parameters:
   default: 'https://[test environment].crm4.dynamics.com/'
 - name: ProductionServiceConnection
   type: string
-  default: 'https://prodcution environment].crm4.dynamics.com/'
+  default: 'https://[prodcution environment].crm4.dynamics.com/'
 - name: TemplateProject
   type: string
   default: 'Template Project Name'
