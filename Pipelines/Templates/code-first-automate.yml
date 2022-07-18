@@ -1,0 +1,110 @@
+# .NET Desktop
+# Build and run tests for .NET Desktop or Windows classic desktop solutions.
+# Add steps that publish symbols, save build artifacts, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/windows/dot-net
+
+parameters:
+- name: buildSourceDirectory
+  type: string
+- name: repo
+  type: string
+- name: solutionName
+  type: string
+- name: project
+  type: string
+  default: ''
+
+steps:
+- task: NuGetToolInstaller@1
+  displayName: 'Use NuGet 4.6.2'
+  inputs:
+    versionSpec: 4.6.2
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
+- script: echo $(System.CollectionId)
+  displayName: 'Display Organization ID'
+
+- task: NuGetCommand@2 
+  displayName: 'NuGet restore'
+  inputs:
+    command: 'restore'
+    restoreSolution: '$(solution)'
+    feedsToUse: 'select'
+    vstsFeed: '$(System.CollectionId)'
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
+- powershell: |
+      # load PowerShell files into memory
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      read-variables-and-generate-snk '$(Build.SourcesDirectory)' '$(System.TeamFoundationCollectionUri)' '${{parameters.project}}' '${{parameters.repo}}' 'alm-accelerator-variable-group'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'Read variable group and generate snk files'
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
+- powershell: |
+      # load PowerShell files into memory
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      assemblyinfo_file_clone '$(Build.SourcesDirectory)' '${{parameters.repo}}' '$(Build.ArtifactStagingDirectory)'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'Clone Assembly Info file'
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
+- powershell: |
+      # load PowerShell files into memory
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      set-assembly-version '$(Build.SourcesDirectory)' '${{parameters.repo}}' '$(Rev:.r)'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'Set Version In Assembly Info files'
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
+- task: VSBuild@1
+  inputs:
+    solution: '**/*.sln'
+    #msbuildArgs: '/p:RunCodeanalysis=false /p:OutputPath="$(Build.BinariesDirectory)\$(BuildConfiguration)/" /p:OutDir="$(Build.BinariesDirectory)\$(BuildConfiguration)\\" /p:GenerateProjectSpecificOutputFolder=true'
+    platform: 'Any CPU'
+    restoreNugetPackages: true
+    configuration: 'Release'
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
+- task: VSTest@2
+  inputs:
+    platform: 'Any CPU'
+    configuration: 'Release'
+    codeCoverageEnabled: True
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
+- powershell: |
+      # load PowerShell files into memory
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      assemblyinfo_file_restore '$(Build.SourcesDirectory)' '${{parameters.repo}}' '$(Build.ArtifactStagingDirectory)'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'Restore Assembly Info file'
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
+- powershell: |
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      npm-install-pcf-Projects '$(Build.SourcesDirectory)'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'npm Install pcf Packages'
+  condition: and(succeeded(), eq(variables.pcfsexists, 'true'))
+
+- powershell: |
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      npm-build-pcf-Projects '$(Build.SourcesDirectory)'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'npm Build pcf Packages'
+  condition: and(succeeded(), eq(variables.pcfsexists, 'true'))
+
+- powershell: |
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      copy-pcf-build-elements '$(Build.SourcesDirectory)' '${{parameters.repo}}' '${{parameters.solutionName}}'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'Copy Built pcf Elments to Unpack Folder'
+  condition: and(succeeded(), eq(variables.pcfsexists, 'true'))

@@ -148,16 +148,78 @@ steps:
     disableAllFlows: 'false'
     activateFlowConfiguration: '$(outActivateFlows)'
 
+- pwsh: |
+      $path = "$(Build.SourcesDirectory)"
+      $totalCSproj = (Get-ChildItem -Path $path -force -Recurse | Where-Object Extension -eq '.csproj' | Measure-Object).Count
+      $totalpcfproj = (Get-ChildItem -Path $path -force -Recurse | Where-Object Extension -eq '.pcfproj' | Measure-Object).Count
+      [bool] $isCSProjExists = ($totalCSproj -gt 0)
+      [bool] $isPCFProjExists = ($totalpcfproj -gt 0)
+      Write-Host "##vso[task.setvariable variable=pluginsexists;]$isCSProjExists"
+      Write-Host "##vso[task.setvariable variable=pcfsexists;]$isPCFProjExists"
+  displayName: 'Check if .csproj and .pcfproj exists in Repo'
+
+# Call code first automate YAML
+- template: code-first-automate.yml
+  parameters:
+    buildSourceDirectory: '$(Build.SourcesDirectory)'
+    repo: '$(RepoName)'
+    solutionName: '$(SolutionName)'
+    project: '$(System.TeamProject)'
+
+- pwsh: |
+      Write-Host "POWERSHELLPATH - $env:POWERSHELLPATH"
+      # load PowerShell files into memory
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      create-pack-xml '$(Build.SourcesDirectory)' '$(Build.ArtifactStagingDirectory)' '$(RepoName)' '$(SolutionName)'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'Creating pack map file'
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
 - template: Hooks\build-solution-pack-pre-hook.yml
 
-#Pack the solution based on the build type parameter (Unmanaged, Managed or Both)
-- task: microsoft-IsvExpTools.PowerPlatform-BuildTools.pack-solution.PowerPlatformPackSolution@0
-  displayName: 'Pack Solutions (Unmanaged and/or Managed)'
-  inputs:
-    SolutionSourceFolder: $(Build.SourcesDirectory)\$(RepoName)\${{parameters.solutionName}}\SolutionPackage
-    SolutionOutputFile: '$(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}_$(Build.BuildNumber).zip'
-    SolutionType: ${{parameters.buildType}}
+- powershell: |
+    $outFolder = "pac"
+    $nugetPackage = "Microsoft.PowerApps.CLI"
+    nuget install $nugetPackage -OutputDirectory $outFolder
 
+    $pacNugetFolder = Get-ChildItem $outFolder | Where-Object {$_.Name -match $nugetPackage + "."}
+    $pacPath = $pacNugetFolder.FullName + "\tools"
+    echo "##vso[task.setvariable variable=pacPath]$pacPath"
+    
+    if(Test-Path "$pacPath\pac.exe")
+    {
+        $pacexepath = "$pacPath\pac.exe"
+        Invoke-Expression -Command "$pacexepath auth create --url $(ServiceConnection) --name ppdev --applicationId $(ClientId) --clientSecret $(ClientSecret) --tenant $(TenantID)"
+        $packCommand = "solution pack --zipfile $(Build.ArtifactStagingDirectory)\$(SolutionName)_$(Build.BuildNumber).zip --folder $(Build.SourcesDirectory)\$(RepoName)\$(SolutionName)\SolutionPackage --packagetype ${{parameters.buildType}}"
+
+        $mapFilePath = "$(RepoName)\map_pack.xml";
+        if(Test-Path $mapFilePath) # Consider Map file if exists
+        {
+            $packCommand += " --map $mapFilePath"
+        }
+        else
+        {
+            Write-Host "Map file path is missing"
+        }
+
+        Write-Host "Pack Command - $packCommand"
+        Invoke-Expression -Command "$pacexepath $packCommand"
+    }
+    else
+    {
+       Write-Host "pac.exe NOT found"
+    }
+  displayName: 'Power Platform Pack Solution - CLI'
+
+
+##Pack the solution based on the build type parameter (Unmanaged, Managed or Both)
+#- task: microsoft-IsvExpTools.PowerPlatform-BuildTools.pack-solution.PowerPlatformPackSolution@0
+#  displayName: 'Pack Solutions (Unmanaged and/or Managed)'
+#  inputs:
+#    SolutionSourceFolder: $(Build.SourcesDirectory)\$(RepoName)\${{parameters.solutionName}}\SolutionPackage
+#    SolutionOutputFile: '$(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}_$(Build.BuildNumber).zip'
+#    SolutionType: ${{parameters.buildType}}
 
 #Run Solution Checker against our solution. This is currently only triggered for pipelines that trigger for Pull Requests
 - task: microsoft-IsvExpTools.PowerPlatform-BuildTools.checker.PowerPlatformChecker@0

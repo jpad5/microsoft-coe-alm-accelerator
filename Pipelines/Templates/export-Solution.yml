@@ -113,15 +113,66 @@ steps:
     SolutionOutputFile: '$(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}_managed.zip'
     Managed: true
 
+- pwsh: |
+      $path = "$(Build.SourcesDirectory)"
+      $totalCSproj = (Get-ChildItem -Path $path -force -Recurse | Where-Object Extension -eq '.csproj' | Measure-Object).Count
+      $totalpcfproj = (Get-ChildItem -Path $path -force -Recurse | Where-Object Extension -eq '.pcfproj' | Measure-Object).Count
+      [bool] $isCSProjExists = ($totalCSproj -gt 0)
+      [bool] $isPCFProjExists = ($totalpcfproj -gt 0)
+      Write-Host "##vso[task.setvariable variable=pluginsexists;]$isCSProjExists"
+      Write-Host "##vso[task.setvariable variable=pcfsexists;]$isPCFProjExists"
+  displayName: 'Check if .csproj and .pcfproj exists in Repo'
+
+- pwsh: |
+      # load PowerShell files into memory
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      create-unpack-xml '$(Build.SourcesDirectory)' '$(Build.ArtifactStagingDirectory)' '${{parameters.repo}}' '${{parameters.solutionName}}'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'Creating unpack map file'
+  condition: and(succeeded(), eq(variables.pluginsexists, 'true'))
+
 - template: Hooks\export-solution-unpack-pre-hook.yml
 
-# Unpack contents of solution to make the contents source control friendly 
-- task: microsoft-IsvExpTools.PowerPlatform-BuildTools.unpack-solution.PowerPlatformUnpackSolution@0
-  displayName: 'Power Platform Unpack Solution'
-  inputs:
-    SolutionInputFile: '$(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}.zip'
-    SolutionTargetFolder: '$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage'
-    SolutionType: Both
+- powershell: |
+    $outFolder = "pac"
+    $nugetPackage = "Microsoft.PowerApps.CLI"
+    nuget install $nugetPackage -OutputDirectory $outFolder
+
+    $pacNugetFolder = Get-ChildItem $outFolder | Where-Object {$_.Name -match $nugetPackage + "."}
+    $pacPath = $pacNugetFolder.FullName + "\tools"
+    echo "##vso[task.setvariable variable=pacPath]$pacPath"
+    
+    if(Test-Path "$pacPath\pac.exe")
+    {
+        $pacexepath = "$pacPath\pac.exe"
+        #Invoke-Expression -Command "$pacexepath auth create --url https://contosocoedev.crm.dynamics.com --name ppdev --applicationId 28e0d2ac-8e83-459f-b910-ad206cf0b436 --clientSecret AGM3bPnj0.Bf-~rOhc.I84angI19s_A5Wj --tenant 8a235459-3d2c-415d-8c1e-e2fe133509ad"
+        Invoke-Expression -Command "$pacexepath auth create --url ${{parameters.serviceConnection}} --name ppdev --applicationId $(ClientId) --clientSecret $(ClientSecret) --tenant $(TenantID)"
+        $unpackCommand = "solution unpack --zipfile $(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}.zip --folder $(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage --packagetype Both"
+
+        $mapFilePath = "${{parameters.repo}}\map_unpack.xml";
+        if(Test-Path $mapFilePath) # Consider Map file if exists
+        {
+            $unpackCommand += " --map $mapFilePath"
+        }        
+
+        Write-Host "Unpack Command - $unpackCommand"
+        Invoke-Expression -Command "$pacexepath $unpackCommand"
+    }
+    else
+    {
+       Write-Host "pac.exe NOT found"
+    }
+  displayName: 'Power Platform Unpack Solution - CLI'
+
+
+## Unpack contents of solution to make the contents source control friendly 
+#- task: microsoft-IsvExpTools.PowerPlatform-BuildTools.unpack-solution.PowerPlatformUnpackSolution@0
+#  displayName: 'Power Platform Unpack Solution'
+#  inputs:
+#    SolutionInputFile: '$(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}.zip'
+#    SolutionTargetFolder: '$(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage'
+#    SolutionType: Both
 
 - template: Hooks\export-solution-manipulate-pre-hook.yml
 
@@ -185,6 +236,13 @@ steps:
   workingDirectory: $(PowerShellPath)
   condition: and(succeeded(), eq(variables.ContinueOnCanvasUnpackError, 'true'))
 
+- pwsh: |
+      . "$env:POWERSHELLPATH/code-first-functions.ps1"
+      drop-pcf-unpacked-elements '$(Build.SourcesDirectory)' '${{parameters.repo}}' '${{parameters.solutionName}}'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+  displayName: 'Drop Unpacked pcf Elments from Unpack Folder'
+  condition: and(succeeded(), eq(variables.pcfsexists, 'true'))
 
 # TEMPORARY until Solution export supports not exporting custom connector configurations
 # We need to clear out the contents of any *_connectionparameters.json file.  This is to ensure those valuse
