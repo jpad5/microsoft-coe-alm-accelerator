@@ -146,8 +146,7 @@ steps:
     if(Test-Path "$pacPath\pac.exe")
     {
         $pacexepath = "$pacPath\pac.exe"
-        #Invoke-Expression -Command "$pacexepath auth create --url https://contosocoedev.crm.dynamics.com --name ppdev --applicationId 28e0d2ac-8e83-459f-b910-ad206cf0b436 --clientSecret AGM3bPnj0.Bf-~rOhc.I84angI19s_A5Wj --tenant 8a235459-3d2c-415d-8c1e-e2fe133509ad"
-        Invoke-Expression -Command "$pacexepath auth create --url ${{parameters.serviceConnection}} --name ppdev --applicationId $(ClientId) --clientSecret $(ClientSecret) --tenant $(TenantID)"
+        Invoke-Expression -Command "$pacexepath auth create --url ${{parameters.serviceConnectionUrl}} --name ppdev --applicationId $(ClientId) --clientSecret $(ClientSecret) --tenant $(TenantID)"
         $unpackCommand = "solution unpack --zipfile $(Build.ArtifactStagingDirectory)\${{parameters.solutionName}}.zip --folder $(Build.SourcesDirectory)\${{parameters.repo}}\${{parameters.solutionName}}\SolutionPackage --packagetype Both"
 
         $mapFilePath = "${{parameters.repo}}\map_unpack.xml";
