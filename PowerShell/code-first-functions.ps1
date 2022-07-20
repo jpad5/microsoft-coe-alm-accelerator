@@ -12,7 +12,7 @@ function read-variables-and-generate-snk
     $headers.Add("Authorization", "Bearer $env:SYSTEM_ACCESSTOKEN")
     $headers.Add("Content-Type", "application/json")
 
-    # Pass Variable Group Name
+    # Pass Variable Group Name and read variables
     # $variableGroupName = "alm-accelerator-variable-group"
     $variableGroupGetUrl = "$orgUrl$projectid/_apis/distributedtask/variablegroups?groupName=$variableGroupName*&queryOrder=IdDescending&api-version=6.0-preview.2"
     Write-Host "pullrequestqueryBodyResourceUrl - $variableGroupGetUrl"
@@ -54,21 +54,25 @@ function read-variables-and-generate-snk
             }
 
             Write-Host "snkName - " $snkName
-            Write-Host "assemblyName - " $assemblyName        
-
-            # SNK variable name convention (AssemblyName@SNKName)
-            if($snkName -and $assemblyName)
+            Write-Host "assemblyName - " $assemblyName
+            
+            if($snkName -and $assemblyName) # SNK variable name convention (AssemblyName@SNKName)
             {
-                #$varSNKName = [System.String]::Concat("$","(",$snkName,")")
-                $varSNKName = [System.String]::Concat("$assemblyName","@",$snkName)
-                Write-Host "varSNKName - $varSNKName"
-                #$base64String = (Get-Variable $varSNKName).value
-                $base64String = $queryResponseObject.value.variables.$varSNKName.value       
-                Write-Host "base64String - " $base64String
                 $filename = "$buildSourceDirectory\$buildRepositoryName\$projectName\$snkName"
                 Write-Host "SNK File Path - $filename"
-                $bytes = [Convert]::FromBase64String("$base64String")
-                [IO.File]::WriteAllBytes($filename, $bytes)
+                # Check if committed snk file already exists
+                # If exists, skip the logic to read snk bits from variable.
+                if(!(Test-Path $filename))
+                {
+                    # Logic to read snk base64 bits from variable and create snk file
+                    $varSNKName = [System.String]::Concat("$assemblyName","@",$snkName)
+                    Write-Host "varSNKName - $varSNKName"
+                    #$base64String = (Get-Variable $varSNKName).value
+                    $base64String = $queryResponseObject.value.variables.$varSNKName.value       
+                    Write-Host "base64String - " $base64String
+                    $bytes = [Convert]::FromBase64String("$base64String")
+                    [IO.File]::WriteAllBytes($filename, $bytes)
+                }
             }
         }
     }    
