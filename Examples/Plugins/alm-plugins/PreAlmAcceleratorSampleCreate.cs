@@ -35,21 +35,21 @@ namespace Alm.Plugins
             if (context != null && context.InputParameters.Contains("Target") && context.InputParameters["Target"] is Entity)
             {
                 // Obtain the target entity from the input parameters.  
-                Entity entity = (Entity)context.InputParameters["Target"];
+                Entity targetAlmAcceleratorSampleCreate = (Entity)context.InputParameters["Target"];
 
                 try
                 {
                     string strDetails = string.Empty;
 
                     // Read first 50 characters of "Details" column
-                    if (entity.Contains("cat_details") && entity["cat_details"] != null)
+                    if (targetAlmAcceleratorSampleCreate.Contains("cat_details") && targetAlmAcceleratorSampleCreate["cat_details"] != null)
                     {
-                        strDetails = entity["cat_details"].ToString();
+                        strDetails = targetAlmAcceleratorSampleCreate["cat_details"].ToString();
                         strDetails = (strDetails.Length > 50) ? strDetails.Substring(0, 49) : strDetails;
                     }
 
                     // Set 'Name' column with first 50 characters of 'Details' column.
-                    entity["cat_name"] = string.IsNullOrEmpty(strDetails) ? entity["cat_name"] : entity["cat_name"] + " - " + strDetails;
+                    targetAlmAcceleratorSampleCreate["cat_name"] = string.IsNullOrEmpty(strDetails) ? targetAlmAcceleratorSampleCreate["cat_name"] : targetAlmAcceleratorSampleCreate["cat_name"] + " - " + strDetails;
                 }
                 catch (FaultException<OrganizationServiceFault> ex)
                 {
