@@ -64,20 +64,9 @@ namespace Alm.Plugins
                         strDetails = (strDetails.Length > 50) ? strDetails.Substring(0, 49) : strDetails;
                     }
 
-                    string strName = string.Empty;
-                    // If 'Name' column modified, read from 'Target' 
-                    if (targetAlmAcceleratorSampleCreate.Contains("cat_name") && targetAlmAcceleratorSampleCreate["cat_name"] != null)
-                    {
-                        strName = targetAlmAcceleratorSampleCreate["cat_name"].ToString();
-                    }
-                    // Else read from PreImage
-                    else if (preImageAlmAcceleratorSampleCreate != null && preImageAlmAcceleratorSampleCreate.Contains("cat_name") && preImageAlmAcceleratorSampleCreate["cat_name"] != null)
-                    {
-                        strName = preImageAlmAcceleratorSampleCreate["cat_name"].ToString();
-                    }
-
+                    var strName = "Quote";
                     // Set 'Name' as { Quote - 'Details' column data }
-                    targetAlmAcceleratorSampleCreate["cat_name"] = string.IsNullOrEmpty(strDetails) ? strName : "Quote" + " - " + strDetails;
+                    targetAlmAcceleratorSampleCreate["cat_name"] = string.IsNullOrEmpty(strDetails) ? strName : strName + " - " + strDetails;
                 }
             }
             catch (FaultException<OrganizationServiceFault> ex)
