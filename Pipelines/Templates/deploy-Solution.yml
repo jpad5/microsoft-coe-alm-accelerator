@@ -133,7 +133,7 @@ steps:
     Write-Host "##vso[task.setVariable variable=ManagedSolutionPath]$managedSolutionPath"
 
     #Set TriggerSolutionUpgrade to false if the variable is not set
-    if('$(TriggerSolutionUpgrade)'.Contains('TriggerSolutionUpgrade')) {
+    if('$(TriggerSolutionUpgrade)'.Contains("TriggerSolutionUpgrade")) {
         Write-Host "##vso[task.setVariable variable=TriggerSolutionUpgrade]false"
     }
   displayName: 'Get managed solution zip path'
