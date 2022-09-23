@@ -285,7 +285,7 @@ steps:
 
 - template: import-configuration-migration-data.yml
   parameters:
-    serviceConnection: '${{parameters.serviceConnectionUrl}}'
+    serviceConnection: '${{parameters.serviceConnectionName}}'
     environmentName: '${{parameters.environmentName}}'
 
 - template: run-canvas-tests.yml 
