@@ -94,6 +94,7 @@ steps:
 
 # Configure email/name and checkout git branch
 - script: |
+   Write-Host $(Build.SourcesDirectory)\${{parameters.repo}}
    git config user.email "${{parameters.email}}"
    git config user.name "${{parameters.userName}}"
    git checkout origin/${{parameters.branch}} --track
