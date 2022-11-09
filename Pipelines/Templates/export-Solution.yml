@@ -94,6 +94,7 @@ steps:
 
 - pwsh: |
    Write-Host $(Build.SourcesDirectory)\${{parameters.repo}}
+   Get-ChildItem -Path "$(Build.SourcesDirectory)\${{parameters.repo}}" -recurse
 
 # Configure email/name and checkout git branch
 - script: |
